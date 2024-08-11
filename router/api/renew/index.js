@@ -4,7 +4,7 @@ const router = express.Router();
 const fetch = require('node-fetch');
 
 router.get('/get/:id', async (req, res) => {
-	const renewal = await db.getRenewal(req.params.id);
+	const renewal = await db.getRenewal(req.params.id); // 這邊也可能有問題
 	if (!renewal) return res.send({ error: '你不能編輯這台伺服器!' });
 	res.send({ renewal: renewal });
 });
@@ -20,9 +20,10 @@ router.post('/:id', async (req, res) => {
 		}
 	});
 	if ((await panelinfo_raw.statusText) === 'Not Found') return res.send({ error: 'Pterodactyl user not found' });
+	const params_id = parseInt(req.params.id);
 	const panelinfo = await panelinfo_raw.json();
 	const servers = panelinfo.attributes.relationships.servers.data;
-	const server = servers.find((server) => server.attributes.id === req.params.id);
+	const server = servers.find((server) => server.attributes.id === params_id);
 	if (!server) return res.send({ error: 'Server not found' });
 	if (server.attributes.suspended === true) {
 		await fetch(`${settings.pterodactyl_url}/api/application/servers/${server.attributes.id}/unsuspend`, {
