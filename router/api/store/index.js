@@ -42,11 +42,11 @@ router.put('/update', async (req, res) => {
 
 	const getSettings = await db.getSettings();
 	let cycleMultiplier = 0;
-	if (newCycle == "daily") {
+	if (newCycle === "daily") {
 		cycleMultiplier = parseInt(getSettings.day_multiplier)/25;
-	} else if (newCycle == "weekly") {
+	} else if (newCycle === "weekly") {
 		cycleMultiplier = parseInt(getSettings.week_multiplier)/4;
-	} else if (newCycle == "monthly") {
+	} else if (newCycle === "monthly") {
 		cycleMultiplier = 1;
 	}
 	const priceCPU = parseInt(getSettings.cpu_price);
@@ -54,7 +54,7 @@ router.put('/update', async (req, res) => {
 	const priceDisk = parseInt(getSettings.disk_price);
 
 	const subtotal = Math.ceil((newCPU*priceCPU + newRam*priceRam + newDisk*priceDisk)*cycleMultiplier);
-	// if (subtotal == 0) {
+	// if (subtotal === 0) {
 	// 	return res.json({ error: "你買了...啥? 寂寞? (不可購買啥都0的，謝謝!)"})
 	// }
 
