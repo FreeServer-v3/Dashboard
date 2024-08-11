@@ -63,6 +63,7 @@ const getUserServers = async function(user) {
 	return { "servers": panelinfo.attributes.relationships.servers.data };
 }
 
+// 定期從資料庫檢查用戶的資源使用情況並根據設定的價格進行計費
 const checkSpecsPaid = async function () {
 	const cycles = await db.getCycles()
 	const now = Date.now();
