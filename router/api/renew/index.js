@@ -4,7 +4,8 @@ const router = express.Router();
 const fetch = require('node-fetch');
 
 router.get('/get/:id', async (req, res) => {
-	const renewal = await db.getRenewal(req.params.id); // 這邊也可能有問題
+	const params_id = parseInt(req.params.id);
+	const renewal = await db.getRenewal(params_id);
 	if (!renewal) return res.send({ error: '你不能編輯這台伺服器!' });
 	res.send({ renewal: renewal });
 });

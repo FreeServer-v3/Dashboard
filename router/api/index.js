@@ -128,7 +128,8 @@ router.get('/me', async (req, res) => {
 	session.password = '';
 	const renewals = await db.getUsersRenewals(req.session.account.email);
 	renewals.forEach(async (renewal) => {
-		const server = panelinfo.attributes.relationships.servers.data.findIndex((server) => server.attributes.id === renewal.server_id);
+		const renewal_serverId = parseInt(renewal.server_id);
+		const server = panelinfo.attributes.relationships.servers.data.findIndex((server) => server.attributes.id === renewal_serverId);
 		panelinfo.attributes.relationships.servers.data[server].renew_by = renewal.renew_by;
 		panelinfo.attributes.relationships.servers.data[server].renewal_enabled = renewal.renewal_enabled;
 	});
