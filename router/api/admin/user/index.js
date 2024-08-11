@@ -10,7 +10,7 @@ router.post('/get', async (req, res) => {
 });
 
 router.post('/getFromID', async (req, res) => {
-    const id = req.body.id
+    const id = parseInt(req.body.id);
     const user = await db.getUserFromID(id);
     if (!user) return res.json({ error: "That user does not exist." })
     user.password = null
@@ -18,7 +18,7 @@ router.post('/getFromID', async (req, res) => {
 });
 
 router.post('/setUserCoinByID', async (req, res) => {
-    const id = req.body.id
+    const id = parseInt(req.body.id)
     const coins = parseInt(req.body.coins)
     
     const getUserEmail = await db.getUserFromID(id);

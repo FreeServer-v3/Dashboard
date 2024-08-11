@@ -154,7 +154,7 @@ router.patch('/edit/:id', async (req, res) => {
 	if (available_cpu < newCpu || available_ram < newRam || available_disk < newDisk) return res.json({ error: '你擁有的資源不足，請購買更多資源或降低其他伺服器用量。[F_EC2]' });
 	if (parseInt(updateCPU) > 1600 || parseInt(updateRam) > 32768 || parseInt(updateDisk) > 262144) return res.json({ error: '單台伺服器最大配置為: CPU 1600%, 記憶體 32GiB, 硬碟 256GiB。如果您有更大的需求，請使用 Discord 的管理員信箱功能聯繫我們。[F_EC10]' });
 
-	const editresults = await fetch(`${settings.pterodactyl_url}/api/application/servers/${req.params.id}/build`, {
+	const editresults = await fetch(`${settings.pterodactyl_url}/api/application/servers/${params_id}/build`, {
 		method: 'patch',
 		headers: {
 			'Content-Type': 'application/json',
@@ -179,7 +179,7 @@ router.patch('/edit/:id', async (req, res) => {
 
 	await db.setUsed(req.session.account.email, parseInt(newCpu), parseInt(newRam), parseInt(newDisk));
 	res.send({ success: true });
-	webhook.info(`Server edited`, `**User:** ${user.username}\n**Server Name:** ${server.attributes.name}\n**Server ID:** ${req.params.id}\nNew Specs: ${updateCPU}% CPU, ${updateRam}MiB Ram, ${updateDisk}MiB Disk`);
+	webhook.info(`Server edited`, `**User:** ${user.username}\n**Server Name:** ${server.attributes.name}\n**Server ID:** ${params_id}\nNew Specs: ${updateCPU}% CPU, ${updateRam}MiB Ram, ${updateDisk}MiB Disk`);
 })
 
 // --TODO--
@@ -205,7 +205,7 @@ router.delete('/delete/:id', async (req, res) => {
 	const servers = panelinfo.attributes.relationships.servers.data;
 	const server = servers.find((server) => server.attributes.id === params_id);
 	if (!server) return res.send({ error: 'Server not found' });
-	const deletionresults = await fetch(`${settings.pterodactyl_url}/api/application/servers/${req.params.id}`, {
+	const deletionresults = await fetch(`${settings.pterodactyl_url}/api/application/servers/${params_id}`, {
 		method: 'delete',
 		headers: {
 			'Content-Type': 'application/json',
@@ -220,7 +220,7 @@ router.delete('/delete/:id', async (req, res) => {
 
 	await db.setUsed(req.session.account.email, parseInt(newCpu), parseInt(newRam), parseInt(newDisk));
 	res.send({ success: true });
-	webhook.info(`Server Deleted`, `**User:** ${user.username}\n**Server Name:** ${server.attributes.name}\n**Server ID:** ${req.params.id}`);
+	webhook.info(`Server Deleted`, `**User:** ${user.username}\n**Server Name:** ${server.attributes.name}\n**Server ID:** ${params_id}`);
 });
 
 module.exports = router;
