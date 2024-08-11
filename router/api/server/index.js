@@ -120,7 +120,8 @@ router.get('/get/:id', async (req, res) => {
 	res.send({ server: server });
 });
 
-router.patch('/edit/:id', async (req,res) => {
+router.patch('/edit/:id', async (req, res) => {
+	const params_id = parseInt(req.params.id);
 	const user = await db.getUser(req.session.account.email);
 	const package = await db.getPackage(user.package);
 	const available_cpu = package.cpu + user.extra.cpu
@@ -144,7 +145,7 @@ router.patch('/edit/:id', async (req,res) => {
 	if ((await panelinfo_raw.statusText) === 'Not Found') return res.send({ error: 'Pterodactyl user not found' });
 	const panelinfo = await panelinfo_raw.json();
 	const servers = panelinfo.attributes.relationships.servers.data;
-	const server = servers.find((server) => server.attributes.id === req.params.id);
+	const server = servers.find((server) => server.attributes.id === params_id);
 	if (!server) return res.send({ error: 'Server not found' });
 
 	const newCpu = parseInt(user.used_cpu) - parseInt(server.attributes.limits.cpu) + parseInt(updateCPU);
@@ -189,6 +190,7 @@ router.post('/forcereinstall/:id', async (req, res) => {
 })
 
 router.delete('/delete/:id', async (req, res) => {
+	const params_id = parseInt(req.params.id);
 	const user = await db.getUser(req.session.account.email);
 	const settings = await db.getSettings();
 	const panelinfo_raw = await fetch(`${settings.pterodactyl_url}/api/application/users/${user.pterodactyl_id}?include=servers`, {
@@ -201,7 +203,7 @@ router.delete('/delete/:id', async (req, res) => {
 	if ((await panelinfo_raw.statusText) === 'Not Found') return res.send({ error: 'Pterodactyl user not found' });
 	const panelinfo = await panelinfo_raw.json();
 	const servers = panelinfo.attributes.relationships.servers.data;
-	const server = servers.find((server) => server.attributes.id === req.params.id);
+	const server = servers.find((server) => server.attributes.id === params_id);
 	if (!server) return res.send({ error: 'Server not found' });
 	const deletionresults = await fetch(`${settings.pterodactyl_url}/api/application/servers/${req.params.id}`, {
 		method: 'delete',
@@ -214,7 +216,7 @@ router.delete('/delete/:id', async (req, res) => {
 	const newCpu = parseInt(user.used_cpu) - parseInt(server.attributes.limits.cpu);
 	const newRam = parseInt(user.used_ram) - parseInt(server.attributes.limits.memory);
 	const newDisk = parseInt(user.used_disk) - parseInt(server.attributes.limits.disk);
-	await db.removeRenewal(req.params.id);
+	await db.removeRenewal(req.params.id); // 這邊傳入了字串，可能會有問題，要看removeRenewal是怎麼實現
 
 	await db.setUsed(req.session.account.email, parseInt(newCpu), parseInt(newRam), parseInt(newDisk));
 	res.send({ success: true });
