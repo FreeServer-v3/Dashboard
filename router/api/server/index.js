@@ -24,7 +24,7 @@ router.post('/create', async (req, res) => {
 	if (parseInt(req.body.cpu) < 10 || parseInt(req.body.ram) < 128 || parseInt(req.body.disk) < 128) return res.json({ error: 'CPU 最小數值為 10%，記憶體與儲存空間至少需要 128MiB，請檢查是否數值過小。[F_EC3]' });
 	if (parseInt(req.body.cpu) > 1600 || parseInt(req.body.ram) > 32768 || parseInt(req.body.disk) > 262144) return res.json({ error: '單台伺服器最大配置為: CPU 1600%, 記憶體 32GiB, 硬碟 256GiB。如果您有更大的需求，請使用 Discord 的管理員信箱功能聯繫我們。[F_EC10]' });
 
-	if (Number.isInteger(parseInt(req.body.cpu)) == false || Number.isInteger(parseInt(req.body.ram)) == false || Number.isInteger(parseInt(req.body.disk)) == false) return res.json({ error: '你輸入的好像不是數字? [F_EC4]' });
+	if (Number.isInteger(parseInt(req.body.cpu)) === false || Number.isInteger(parseInt(req.body.ram)) === false || Number.isInteger(parseInt(req.body.disk)) === false) return res.json({ error: '你輸入的好像不是數字? [F_EC4]' });
 
 	const settings = await db.getSettings();
 
@@ -114,7 +114,7 @@ router.get('/get/:id', async (req, res) => {
 	if ((await panelinfo_raw.statusText) === 'Not Found') return res.send({ error: 'Pterodactyl user not found' });
 	const panelinfo = await panelinfo_raw.json();
 	const servers = panelinfo.attributes.relationships.servers.data;
-	const server = servers.find((server) => server.attributes.id == req.params.id);
+	const server = servers.find((server) => server.attributes.id === req.params.id);
 	if (!server) return res.send({ error: 'Server not found' });
 	res.send({ server: server });
 });
@@ -143,7 +143,7 @@ router.patch('/edit/:id', async (req,res) => {
 	if ((await panelinfo_raw.statusText) === 'Not Found') return res.send({ error: 'Pterodactyl user not found' });
 	const panelinfo = await panelinfo_raw.json();
 	const servers = panelinfo.attributes.relationships.servers.data;
-	const server = servers.find((server) => server.attributes.id == req.params.id);
+	const server = servers.find((server) => server.attributes.id === req.params.id);
 	if (!server) return res.send({ error: 'Server not found' });
 
 	const newCpu = parseInt(user.used_cpu) - parseInt(server.attributes.limits.cpu) + parseInt(updateCPU);
@@ -200,7 +200,7 @@ router.delete('/delete/:id', async (req, res) => {
 	if ((await panelinfo_raw.statusText) === 'Not Found') return res.send({ error: 'Pterodactyl user not found' });
 	const panelinfo = await panelinfo_raw.json();
 	const servers = panelinfo.attributes.relationships.servers.data;
-	const server = servers.find((server) => server.attributes.id == req.params.id);
+	const server = servers.find((server) => server.attributes.id === req.params.id);
 	if (!server) return res.send({ error: 'Server not found' });
 	const deletionresults = await fetch(`${settings.pterodactyl_url}/api/application/servers/${req.params.id}`, {
 		method: 'delete',
