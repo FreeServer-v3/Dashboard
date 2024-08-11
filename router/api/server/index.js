@@ -102,7 +102,7 @@ router.post('/create', async (req, res) => {
 });
 
 router.get('/get/:id', async (req, res) => {
-	const params_id = new Number(req.params.id);
+	const params_id = parseInt(req.params.id);
 	const user = await db.getUser(req.session.account.email);
 	const settings = await db.getSettings();
 	const panelinfo_raw = await fetch(`${settings.pterodactyl_url}/api/application/users/${user.pterodactyl_id}?include=servers`, {
