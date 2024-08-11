@@ -114,7 +114,7 @@ router.get('/get/:id', async (req, res) => {
 	if ((await panelinfo_raw.statusText) === 'Not Found') return res.send({ error: 'Pterodactyl user not found' });
 	const panelinfo = await panelinfo_raw.json();
 	const servers = panelinfo.attributes.relationships.servers.data;
-	const server = servers.find((server) => server.attributes.id === req.params.id);
+	const server = servers.find((server) => server.attributes.id == req.params.id);
 	if (!server) return res.send({ error: 'Server not found' });
 	res.send({ server: server });
 });
