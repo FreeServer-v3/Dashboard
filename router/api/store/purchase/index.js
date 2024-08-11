@@ -79,7 +79,7 @@ const router = express.Router();
 router.post('/ram/:amount', async (req, res) => {
 	// if (parseInt(req.params.amount) <= 0) return res.json({ error: 'The amount has to be over 0.' });
 
-	// if (Number.isInteger(parseInt(req.params.amount)) == false) return res.json({ error: 'The amount must be a integer.' });
+	// if (Number.isInteger(parseInt(req.params.amount)) === false) return res.json({ error: 'The amount must be a integer.' });
 
 	// const user = await db.getUser(req.session.account.email);
 
@@ -109,7 +109,7 @@ router.post('/ram/:amount', async (req, res) => {
 router.post('/cpu/:amount', async (req, res) => {
 	// if (parseInt(req.params.amount) <= 0) return res.json({ error: 'The amount has to be over 0.' });
 
-	// if (Number.isInteger(parseInt(req.params.amount)) == false) return res.json({ error: 'The amount must be a integer.' });
+	// if (Number.isInteger(parseInt(req.params.amount)) === false) return res.json({ error: 'The amount must be a integer.' });
 
 	// const user = await db.getUser(req.session.account.email);
 
@@ -139,7 +139,7 @@ router.post('/cpu/:amount', async (req, res) => {
 router.post('/disk/:amount', async (req, res) => {
 	// if (parseInt(req.params.amount) <= 0) return res.json({ error: 'The amount has to be over 0.' });
 
-	// if (Number.isInteger(parseInt(req.params.amount)) == false) return res.json({ error: 'The amount must be a integer.' });
+	// if (Number.isInteger(parseInt(req.params.amount)) === false) return res.json({ error: 'The amount must be a integer.' });
 
 	// const user = await db.getUser(req.session.account.email);
 

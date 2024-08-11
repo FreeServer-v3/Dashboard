@@ -87,18 +87,18 @@ const checkSpecsPaid = async function () {
 			return;
 		}
 		newCycle = cycle.cycle;
-		if (newCycle == "daily") {
+		if (newCycle === "daily") {
 			cycleMultiplier = parseInt(getSettings.day_multiplier)/25;
-		} else if (newCycle == "weekly") {
+		} else if (newCycle === "weekly") {
 			cycleMultiplier = parseInt(getSettings.week_multiplier)/4;
-		} else if (newCycle == "monthly") {
+		} else if (newCycle === "monthly") {
 			cycleMultiplier = 1;
 		}
 		newCPU = getUser.extra.cpu/100
 		newRam = getUser.extra.ram/1024
 		newDisk = getUser.extra.disk/1024
 		subtotal = Math.ceil((newCPU*priceCPU + newRam*priceRam + newDisk*priceDisk)*cycleMultiplier);
-		if (subtotal == 0) {
+		if (subtotal === 0) {
 			return;
 		}
 		
@@ -163,7 +163,7 @@ const checkRenewals = async function () {
 				});
 				const panelinfo = await panelinfo_raw.json();
 				const servers = panelinfo.attributes.relationships.servers.data;
-				const server = servers.find((server) => server.attributes.id == renewal.server_id);
+				const server = servers.find((server) => server.attributes.id === renewal.server_id);
 				const deletionresults = await fetch(`${settings.pterodactyl_url}/api/application/servers/${renewal.server_id}`, {
 					method: 'delete',
 					headers: {
