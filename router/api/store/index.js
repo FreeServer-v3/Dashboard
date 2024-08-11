@@ -24,6 +24,7 @@ router.get('/cycle', async (req, res) => {
 	}
 })
 
+// 前端更改資源後存到資料庫
 router.put('/update', async (req, res) => {
 	function checkInt(num){
 		return (typeof num === 'number' && Number.isInteger(num) && num%1==0 && num >= 0)
