@@ -10,7 +10,7 @@ router.post('/get', async (req, res) => {
 });
 
 router.post('/getFromID', async (req, res) => {
-    const id = parseInt(req.body.id);
+    const id = req.body.id.toString();
     const user = await db.getUserFromID(id);
     if (!user) return res.json({ error: "That user does not exist." })
     user.password = null
