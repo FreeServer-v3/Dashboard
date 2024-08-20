@@ -1,4 +1,3 @@
-const log = require('../../lib/logger');
 const db = require('../../lib/database');
 const express = require('express');
 const router = express.Router();
