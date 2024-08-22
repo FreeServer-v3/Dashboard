@@ -6,221 +6,253 @@ const webhook = require('../../../lib/webhook');
 
 let tmp = {};
 
+/**
+ * 檢查用戶是否有足夠的資源來創建或修改伺服器
+ * @param {Object} user - 用戶對象
+ * @param {Object} pkg - 用戶套餐對象
+ * @param {Object} resourceRequest - 請求的資源
+ * @returns {boolean} 如果資源足夠則返回 true，否則返回 false
+ */
+function hasEnoughResources(user, pkg, resourceRequest) {
+    const available_cpu = pkg.cpu + user.extra.cpu - user.used_cpu;
+    const available_ram = pkg.ram + user.extra.ram - user.used_ram;
+    const available_disk = pkg.disk + user.extra.disk - user.used_disk;
+    return (
+        available_cpu >= resourceRequest.cpu &&
+        available_ram >= resourceRequest.ram &&
+        available_disk >= resourceRequest.disk
+    );
+}
+
+/**
+ * 從 Pterodactyl 獲取伺服器信息
+ * @param {Object} user - 用戶對象
+ * @param {Object} settings - 配置對象
+ * @returns {Object|null} 如果找到伺服器信息則返回該信息，否則返回 null
+ */
+async function getPterodactylServerInfo(user, settings) {
+    const response = await fetch(`${settings.pterodactyl_url}/api/application/users/${user.pterodactyl_id}?include=servers`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${settings.pterodactyl_key}`
+        }
+    });
+
+    if (response.statusText === 'Not Found') return null;
+
+    const data = await response.json();
+    return data.attributes.relationships.servers.data;
+}
+
+/**
+ * 發送伺服器更新的 Webhook 通知
+ * @param {Object} user - 用戶對象
+ * @param {Object} server - 伺服器對象
+ * @param {string} action - 操作描述
+ * @param {string} additionalInfo - 附加信息
+ */
+async function sendServerWebhook(user, server, action, additionalInfo) {
+    await webhook.info(
+        `Server ${action}`,
+        `**User:** ${user.username}\n**Server Name:** ${server.attributes.name}\n**Server ID:** ${server.attributes.id}\n${additionalInfo}`
+    );
+}
+
 router.post('/create', async (req, res) => {
-	if (
-		tmp[req.session.account.pterodactyl_id] &&
-		Date.now() - tmp[req.session.account.pterodactyl_id] <  7500
-	) {
-		return res.json({ error: "剛才已創建過，請稍後再試。" })
-	}
-	tmp[req.session.account.pterodactyl_id] = Date.now();
-	const user = await db.getUser(req.session.account.email);
-	const package = await db.getPackage(user.package);
-	const available_cpu = package.cpu + user.extra.cpu - user.used_cpu;
-	const available_ram = package.ram + user.extra.ram - user.used_ram;
-	const available_disk = package.disk + user.extra.disk - user.used_disk;
-	if (available_cpu < req.body.cpu || available_ram < req.body.ram || available_disk < req.body.disk) return res.json({ error: '你擁有的資源不足，請購買更多資源或降低其他伺服器用量。[F_EC2]' });
+    if (
+        tmp[req.session.account.pterodactyl_id] &&
+        Date.now() - tmp[req.session.account.pterodactyl_id] < 7500
+    ) {
+        return res.json({ error: "剛才已創建過，請稍後再試。" });
+    }
+    tmp[req.session.account.pterodactyl_id] = Date.now();
 
-	if (parseInt(req.body.cpu) < 10 || parseInt(req.body.ram) < 128 || parseInt(req.body.disk) < 128) return res.json({ error: 'CPU 最小數值為 10%，記憶體與儲存空間至少需要 128MiB，請檢查是否數值過小。[F_EC3]' });
-	if (parseInt(req.body.cpu) > 1600 || parseInt(req.body.ram) > 32768 || parseInt(req.body.disk) > 262144) return res.json({ error: '單台伺服器最大配置為: CPU 1600%, 記憶體 32GiB, 硬碟 256GiB。如果您有更大的需求，請使用 Discord 的管理員信箱功能聯繫我們。[F_EC10]' });
+    const user = await db.getUser(req.session.account.email);
+    const pkg = await db.getPackage(user.package);
 
-	if (Number.isInteger(parseInt(req.body.cpu)) === false || Number.isInteger(parseInt(req.body.ram)) === false || Number.isInteger(parseInt(req.body.disk)) === false) return res.json({ error: '你輸入的好像不是數字? [F_EC4]' });
+    if (!hasEnoughResources(user, pkg, req.body)) {
+        return res.json({ error: '你擁有的資源不足，請購買更多資源或降低其他伺服器用量。[F_EC2]' });
+    }
 
-	const settings = await db.getSettings();
+    const settings = await db.getSettings();
+    const egg = await db.getEgg(req.body.egg);
+    const location = await db.getLocation(req.body.location);
 
-	const egg = await db.getEgg(req.body.egg);
+    if (!egg || !location || location.enabled === false) {
+        return res.json({ error: '無效的創建請求。[F_EC5, F_EC6, F_EC7]' });
+    }
 
-	if (!egg) return res.json({ error: "找不到創建類型。[F_EC5]" })
+    try {
+        const environment = JSON.parse(egg.environment);
 
-	const location = await db.getLocation(req.body.location);
+        const serverinfo_req = await fetch(`${settings.pterodactyl_url}/api/application/servers`, {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${settings.pterodactyl_key}`
+            },
+            body: JSON.stringify({
+                name: req.body.name,
+                user: user.pterodactyl_id,
+                egg: egg.id,
+                docker_image: egg.docker_image,
+                startup: egg.startup,
+                environment,
+                limits: {
+                    memory: req.body.ram,
+                    cpu: req.body.cpu,
+                    disk: req.body.disk,
+                    swap: 0,
+                    io: 500
+                },
+                feature_limits: {
+                    databases: parseInt(egg.databases),
+                    backups: parseInt(egg.backups)
+                },
+                deploy: {
+                    locations: [parseFloat(location.id)],
+                    dedicated_ip: false,
+                    port_range: []
+                }
+            })
+        });
 
-	if (!location) return res.json({ error: "所選之節點無效，或已被移除。[F_EC6]" })
+        if (serverinfo_req.statusText === "Forbidden") {
+            return res.json({ error: "你切錯帳號了 [F_EC8]" });
+        }
 
-	if (location.enabled === false) return res.json({ error: "這個節點暫時無法創建伺服器。請嘗試其他的節點。[F_EC7]" })
+        if (serverinfo_req.statusText !== 'Created') {
+            const status = await serverinfo_req.text();
+            console.log(status);
+            return res.json({ error: '創建時發生了點問題，請聯絡管理員。[F_EC11]' });
+        }
 
-	let environment
+        const added = await db.addUsed(user.email, req.body.cpu, req.body.ram, req.body.disk);
+        if (added !== true) {
+            return res.json({ error: '資料庫錯誤，請聯絡管理員。[F_EC9]' });
+        }
 
-	try {
-		environment = JSON.parse(egg.environment);
-	} catch {
-		return res.json({ error: "發生錯誤，請聯絡管理員。[F_EC1]" })
-	}
+        const serverInfo = await serverinfo_req.json();
+        await db.addRenewal(user.email, serverInfo.attributes.id);
 
-	const serverinfo_req = await fetch(`${settings.pterodactyl_url}/api/application/servers`, {
-		method: 'post',
-		headers: {
-			Accept: 'application/json',
-			'Content-Type': 'application/json',
-			Authorization: `Bearer ${settings.pterodactyl_key}`
-		},
-		body: JSON.stringify({
-			name: req.body.name,
-			user: user.pterodactyl_id,
-			egg: egg.id,
-			docker_image: egg.docker_image,
-			startup: egg.startup,
-			environment: environment,
-			limits: {
-				memory: req.body.ram,
-				cpu: req.body.cpu,
-				disk: req.body.disk,
-				swap: 0,
-				io: 500
-			},
-			feature_limits: {
-				databases: parseInt(egg.databases),
-				backups: parseInt(egg.backups)
-			},
-			deploy: {
-				locations: [parseFloat(location.id)],
-				dedicated_ip: false,
-				port_range: []
-			}
-		})
-	});
-
-	if (serverinfo_req.statusText === "Forbidden") {
-		return res.json({ error: "你切錯帳號了 [F_EC8]" })
-	}
-
-	if (serverinfo_req.statusText !== 'Created') {
-		const status = await serverinfo_req.text();
-		console.log(status)
-		return res.send({ error: '創建時發生了點問題，請聯絡管理員。[F_EC11]' });
-	}
-
-	const added = await db.addUsed(user.email, req.body.cpu, req.body.ram, req.body.disk);
-
-	if (added != true) return res.json({ error: '資料庫錯誤，請聯絡管理員。[F_EC9]'});
-
-	const serverInfo = await serverinfo_req.json();
-
-	await db.addRenewal(user.email, serverInfo.attributes.id);
-
-	res.send({ success: true });
-	webhook.info(`Server Created`, `**User:** ${user.username} (${user.email})\n**Server:** ${serverInfo.attributes.name}\n**CPU:** ${req.body.cpu}\n**RAM:** ${req.body.ram}\n**Disk:** ${req.body.disk}`);
+        res.json({ success: true });
+        await sendServerWebhook(user, serverInfo, 'Created', `**CPU:** ${req.body.cpu}\n**RAM:** ${req.body.ram}\n**Disk:** ${req.body.disk}`);
+    } catch (error) {
+        res.json({ error: "發生錯誤，請聯絡管理員。[F_EC1]" });
+    }
 });
 
 router.get('/get/:id', async (req, res) => {
-	const params_id = parseInt(req.params.id);
-	const user = await db.getUser(req.session.account.email);
-	const settings = await db.getSettings();
-	const panelinfo_raw = await fetch(`${settings.pterodactyl_url}/api/application/users/${user.pterodactyl_id}?include=servers`, {
-		method: 'get',
-		headers: {
-			'Content-Type': 'application/json',
-			Authorization: `Bearer ${settings.pterodactyl_key}`
-		}
-	});
-	if ((await panelinfo_raw.statusText) === 'Not Found') return res.send({ error: 'Pterodactyl user not found' });
-	const panelinfo = await panelinfo_raw.json();
-	const servers = panelinfo.attributes.relationships.servers.data;
-	const server = servers.find((server) => server.attributes.id === params_id);
-	if (!server) return res.send({ error: 'Server not found' });
-	res.send({ server: server });
+    try {
+        const user = await db.getUser(req.session.account.email);
+        const settings = await db.getSettings();
+        const servers = await getPterodactylServerInfo(user, settings);
+
+        if (!servers) return res.json({ error: 'Pterodactyl user not found' });
+
+        const server = servers.find((server) => server.attributes.id === parseInt(req.params.id));
+        if (!server) return res.json({ error: 'Server not found' });
+
+        res.json({ server });
+    } catch (error) {
+        res.json({ error: "發生錯誤，請聯絡管理員。[F_GE1]" });
+    }
 });
 
 router.patch('/edit/:id', async (req, res) => {
-	const params_id = parseInt(req.params.id);
-	const user = await db.getUser(req.session.account.email);
-	const package = await db.getPackage(user.package);
-	const available_cpu = package.cpu + user.extra.cpu
-	const available_ram = package.ram + user.extra.ram
-	const available_disk = package.disk + user.extra.disk
+    try {
+        const user = await db.getUser(req.session.account.email);
+        const pkg = await db.getPackage(user.package);
 
-	const body = JSON.parse(JSON.stringify(req.body));
-	const updateRam = body.ram;
-	const updateDisk = body.disk;
-	const updateCPU = body.cpu;
-	if (parseInt(updateCPU) < 10 || parseInt(updateRam) < 128 || parseInt(updateDisk) < 128) return res.json({ error: 'CPU 最小數值為 10%，記憶體與儲存空間至少需要 128MiB，請檢查是否數值過小。[F_EC3]' });
+        const settings = await db.getSettings();
+        const servers = await getPterodactylServerInfo(user, settings);
 
-	const settings = await db.getSettings();
-	const panelinfo_raw = await fetch(`${settings.pterodactyl_url}/api/application/users/${user.pterodactyl_id}?include=servers`, {
-		method: 'get',
-		headers: {
-			'Content-Type': 'application/json',
-			Authorization: `Bearer ${settings.pterodactyl_key}`
-		}
-	});
-	if ((await panelinfo_raw.statusText) === 'Not Found') return res.send({ error: 'Pterodactyl user not found' });
-	const panelinfo = await panelinfo_raw.json();
-	const servers = panelinfo.attributes.relationships.servers.data;
-	const server = servers.find((server) => server.attributes.id === params_id);
-	if (!server) return res.send({ error: 'Server not found' });
+        if (!servers) return res.json({ error: 'Pterodactyl user not found' });
 
-	const newCpu = parseInt(user.used_cpu) - parseInt(server.attributes.limits.cpu) + parseInt(updateCPU);
-	const newRam = parseInt(user.used_ram) - parseInt(server.attributes.limits.memory) + parseInt(updateRam);
-	const newDisk = parseInt(user.used_disk) - parseInt(server.attributes.limits.disk) + parseInt(updateDisk);
-	if (available_cpu < newCpu || available_ram < newRam || available_disk < newDisk) return res.json({ error: '你擁有的資源不足，請購買更多資源或降低其他伺服器用量。[F_EC2]' });
-	if (parseInt(updateCPU) > 1600 || parseInt(updateRam) > 32768 || parseInt(updateDisk) > 262144) return res.json({ error: '單台伺服器最大配置為: CPU 1600%, 記憶體 32GiB, 硬碟 256GiB。如果您有更大的需求，請使用 Discord 的管理員信箱功能聯繫我們。[F_EC10]' });
+        const server = servers.find((server) => server.attributes.id === parseInt(req.params.id));
+        if (!server) return res.json({ error: 'Server not found' });
 
-	const editresults = await fetch(`${settings.pterodactyl_url}/api/application/servers/${params_id}/build`, {
-		method: 'patch',
-		headers: {
-			'Content-Type': 'application/json',
-			Authorization: `Bearer ${settings.pterodactyl_key}`
-		},
-		body: JSON.stringify({
-			allocation: parseInt(server.attributes.allocation),
-			cpu: parseInt(updateCPU),
-			memory: parseInt(updateRam),
-			disk: parseInt(updateDisk),
-			swap: parseInt(server.attributes.limits.swap),
-			io: parseInt(server.attributes.limits.io),
-			feature_limits: {
-			  databases: parseInt(server.attributes.feature_limits.databases),
-			  allocations: parseInt(server.attributes.feature_limits.allocations),
-			  backups: parseInt(server.attributes.feature_limits.backups)
-			}
-		})
-	});
+        const newResources = {
+            cpu: parseInt(req.body.cpu),
+            ram: parseInt(req.body.ram),
+            disk: parseInt(req.body.disk)
+        };
 
-	if (!editresults.ok) return res.send({ error: `無法編輯伺服器。[F_EE1]` });
+        if (!hasEnoughResources(user, pkg, newResources)) {
+            return res.json({ error: '你擁有的資源不足，請購買更多資源或降低其他伺服器用量。[F_EC2]' });
+        }
 
-	await db.setUsed(req.session.account.email, parseInt(newCpu), parseInt(newRam), parseInt(newDisk));
-	res.send({ success: true });
-	webhook.info(`Server edited`, `**User:** ${user.username}\n**Server Name:** ${server.attributes.name}\n**Server ID:** ${params_id}\nNew Specs: ${updateCPU}% CPU, ${updateRam}MiB Ram, ${updateDisk}MiB Disk`);
-})
+        const editresults = await fetch(`${settings.pterodactyl_url}/api/application/servers/${req.params.id}/build`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${settings.pterodactyl_key}`
+            },
+            body: JSON.stringify({
+                allocation: parseInt(server.attributes.allocation),
+                cpu: newResources.cpu,
+                memory: newResources.ram,
+                disk: newResources.disk,
+                swap: server.attributes.limits.swap,
+                io: server.attributes.limits.io,
+                feature_limits: {
+                    databases: server.attributes.feature_limits.databases,
+                    allocations: server.attributes.feature_limits.allocations,
+                    backups: server.attributes.feature_limits.backups
+                }
+            })
+        });
 
-// --TODO--
-router.post('/forcereinstall/:id', async (req, res) => {
-	const user = await db.getUser(req.session.account.email);
-	const settings = await db.getSettings();
-	const panelinfo_raw = await fetch(``)
-})
+        if (!editresults.ok) return res.json({ error: `無法編輯伺服器。[F_EE1]` });
+
+        const newCpu = user.used_cpu - server.attributes.limits.cpu + newResources.cpu;
+        const newRam = user.used_ram - server.attributes.limits.memory + newResources.ram;
+        const newDisk = user.used_disk - server.attributes.limits.disk + newResources.disk;
+
+        await db.setUsed(req.session.account.email, newCpu, newRam, newDisk);
+
+        res.json({ success: true });
+        await sendServerWebhook(user, server, 'edited', `New Specs: ${newResources.cpu}% CPU, ${newResources.ram}MiB Ram, ${newResources.disk}MiB Disk`);
+    } catch (error) {
+        res.json({ error: "發生錯誤，請聯絡管理員。[F_GE2]" });
+    }
+});
 
 router.delete('/delete/:id', async (req, res) => {
-	const params_id = parseInt(req.params.id);
-	const user = await db.getUser(req.session.account.email);
-	const settings = await db.getSettings();
-	const panelinfo_raw = await fetch(`${settings.pterodactyl_url}/api/application/users/${user.pterodactyl_id}?include=servers`, {
-		method: 'get',
-		headers: {
-			'Content-Type': 'application/json',
-			Authorization: `Bearer ${settings.pterodactyl_key}`
-		}
-	});
-	if ((await panelinfo_raw.statusText) === 'Not Found') return res.send({ error: 'Pterodactyl user not found' });
-	const panelinfo = await panelinfo_raw.json();
-	const servers = panelinfo.attributes.relationships.servers.data;
-	const server = servers.find((server) => server.attributes.id === params_id);
-	if (!server) return res.send({ error: 'Server not found' });
-	const deletionresults = await fetch(`${settings.pterodactyl_url}/api/application/servers/${params_id}`, {
-		method: 'delete',
-		headers: {
-			'Content-Type': 'application/json',
-			Authorization: `Bearer ${settings.pterodactyl_key}`
-		}
-	});
-	if (!deletionresults.ok) return res.send({ error: 'Failed to delete server' });
-	const newCpu = parseInt(user.used_cpu) - parseInt(server.attributes.limits.cpu);
-	const newRam = parseInt(user.used_ram) - parseInt(server.attributes.limits.memory);
-	const newDisk = parseInt(user.used_disk) - parseInt(server.attributes.limits.disk);
-	await db.removeRenewal(req.params.id); // 這邊傳入了字串，可能會有問題，要看removeRenewal是怎麼實現
+    try {
+        const user = await db.getUser(req.session.account.email);
+        const settings = await db.getSettings();
+        const servers = await getPterodactylServerInfo(user, settings);
 
-	await db.setUsed(req.session.account.email, parseInt(newCpu), parseInt(newRam), parseInt(newDisk));
-	res.send({ success: true });
-	webhook.info(`Server Deleted`, `**User:** ${user.username}\n**Server Name:** ${server.attributes.name}\n**Server ID:** ${params_id}`);
+        if (!servers) return res.json({ error: 'Pterodactyl user not found' });
+
+        const server = servers.find((server) => server.attributes.id === parseInt(req.params.id));
+        if (!server) return res.json({ error: 'Server not found' });
+
+        const deletionresults = await fetch(`${settings.pterodactyl_url}/api/application/servers/${req.params.id}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${settings.pterodactyl_key}`
+            }
+        });
+
+        if (!deletionresults.ok) return res.json({ error: 'Failed to delete server' });
+
+        const newCpu = user.used_cpu - server.attributes.limits.cpu;
+        const newRam = user.used_ram - server.attributes.limits.memory;
+        const newDisk = user.used_disk - server.attributes.limits.disk;
+
+        await db.removeRenewal(req.params.id);
+        await db.setUsed(req.session.account.email, newCpu, newRam, newDisk);
+
+        res.json({ success: true });
+        await sendServerWebhook(user, server, 'Deleted', '');
+    } catch (error) {
+        res.json({ error: "發生錯誤，請聯絡管理員。[F_GE3]" });
+    }
 });
 
 module.exports = router;

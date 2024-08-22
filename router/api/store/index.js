@@ -2,84 +2,145 @@ const db = require('../../../lib/database');
 const express = require('express');
 const router = express.Router();
 
+/**
+ * 檢查並返回用戶的 Pterodactyl 設置
+ * @param {Object} settings - 系統設置
+ * @returns {Object|null} 如果設置不完整，返回錯誤對象；如果設置完整，返回 null
+ */
+function checkPterodactylSettings(settings) {
+    if (!settings.pterodactyl_url) return { error: 'Pterodactyl URL not set' };
+    if (!settings.pterodactyl_key) return { error: 'Pterodactyl Key not set' };
+    return null;
+}
+
+/**
+ * 獲取資源價格和用戶的資源信息
+ * @param {Object} user - 用戶對象
+ * @param {Object} settings - 系統設置
+ * @returns {Object} 包含資源價格和用戶資源信息的對象
+ */
+function getResourceInfo(user, settings) {
+    return {
+        user_cpu: user.extra.cpu,
+        user_ram: user.extra.ram,
+        user_disk: user.extra.disk,
+        ram_price: settings.ram_price,
+        cpu_price: settings.cpu_price,
+        disk_price: settings.disk_price,
+        day_multiplier: settings.day_multiplier,
+        week_multiplier: settings.week_multiplier
+    };
+}
+
+/**
+ * 計算資源的總價格
+ * @param {Object} settings - 系統設置
+ * @param {Object} resource - 資源請求對象
+ * @returns {number} 計算後的總價格
+ */
+function calculateTotalPrice(settings, resource) {
+    let cycleMultiplier = 0;
+    if (resource.cycle === "daily") {
+        cycleMultiplier = parseInt(settings.day_multiplier) / 25;
+    } else if (resource.cycle === "weekly") {
+        cycleMultiplier = parseInt(settings.week_multiplier) / 4;
+    } else if (resource.cycle === "monthly") {
+        cycleMultiplier = 1;
+    }
+
+    const priceCPU = parseInt(settings.cpu_price);
+    const priceRam = parseInt(settings.ram_price);
+    const priceDisk = parseInt(settings.disk_price);
+
+    return Math.ceil((resource.cpu * priceCPU + resource.ram * priceRam + resource.disk * priceDisk) * cycleMultiplier);
+}
+
+/**
+ * 檢查數值是否為有效的整數
+ * @param {number} num - 要檢查的數字
+ * @returns {boolean} 如果數字為有效整數，返回 true，否則返回 false
+ */
+function checkInt(num) {
+    return typeof num === 'number' && Number.isInteger(num) && num % 1 === 0 && num >= 0;
+}
+
 router.get('/', async (req, res) => {
-	const settings = await db.getSettings();
-	const user = await db.getUser(req.session.account.email)
-	if (!settings.pterodactyl_url) return res.json({ error: 'Pterodactyl URL not set' });
-	if (!settings.pterodactyl_key) return res.json({ error: 'Pterodactyl Key not set' });
-	res.json({ user_cpu: user.extra.cpu, user_ram: user.extra.ram, user_disk: user.extra.disk, ram_price: settings.ram_price, cpu_price: settings.cpu_price, disk_price: settings.disk_price, day_multiplier: settings.day_multiplier, week_multiplier: settings.week_multiplier });
+    try {
+        const settings = await db.getSettings();
+        const user = await db.getUser(req.session.account.email);
+
+        const error = checkPterodactylSettings(settings);
+        if (error) return res.json(error);
+
+        const resourceInfo = getResourceInfo(user, settings);
+        res.json(resourceInfo);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to retrieve resource information' });
+    }
 });
 
 router.get('/cycle', async (req, res) => {
-	const getUserCycle = await db.getUserCycle(req.session.account.email);
-	if (!getUserCycle) {
-		const createUserCycle = await db.createUserCycle(req.session.account.email);
-		if (!createUserCycle) {
-			return res.json({ error: "error during create user cycle"})
-		} else {
-			return res.json({ cycle: "daily", exp: 0,new: true })
-		}
-	} else {
-		return res.json({ cycle: getUserCycle.cycle, exp: getUserCycle.next_expire, new: false })
-	}
-})
+    try {
+        const getUserCycle = await db.getUserCycle(req.session.account.email);
+
+        if (!getUserCycle) {
+            const createUserCycle = await db.createUserCycle(req.session.account.email);
+            if (!createUserCycle) {
+                return res.json({ error: "Error during creating user cycle" });
+            } else {
+                return res.json({ cycle: "daily", exp: 0, new: true });
+            }
+        } else {
+            return res.json({ cycle: getUserCycle.cycle, exp: getUserCycle.next_expire, new: false });
+        }
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to retrieve cycle information' });
+    }
+});
 
 // 前端更改資源後存到資料庫
 router.put('/update', async (req, res) => {
-	function checkInt(num){
-		return (typeof num === 'number' && Number.isInteger(num) && num%1==0 && num >= 0)
-	}
+    try {
+        const body = req.body;
+        const newCPU = body.cpu;
+        const newRam = body.ram;
+        const newDisk = body.disk;
+        const newCycle = body.cycle;
 
-	const body = JSON.parse(JSON.stringify(req.body));
-	const newCPU = body.cpu;
-	const newRam = body.ram;
-	const newDisk = body.disk;
-	const newCycle = body.cycle;
+        if (![newCPU, newRam, newDisk].every(checkInt)) {
+            return res.json({ error: "你輸入的數字好像不是整數..." });
+        }
 
-	if ((!checkInt(newCPU*1)) || (!checkInt(newRam*1)) || (!checkInt(newDisk*1))){
-		return res.json({ error: "你輸入的數字好像不是整數..."})
-	}
+        const settings = await db.getSettings();
+        const subtotal = calculateTotalPrice(settings, { cpu: newCPU, ram: newRam, disk: newDisk, cycle: newCycle });
 
-	const getSettings = await db.getSettings();
-	let cycleMultiplier = 0;
-	if (newCycle === "daily") {
-		cycleMultiplier = parseInt(getSettings.day_multiplier)/25;
-	} else if (newCycle === "weekly") {
-		cycleMultiplier = parseInt(getSettings.week_multiplier)/4;
-	} else if (newCycle === "monthly") {
-		cycleMultiplier = 1;
-	}
-	const priceCPU = parseInt(getSettings.cpu_price);
-	const priceRam = parseInt(getSettings.ram_price);
-	const priceDisk = parseInt(getSettings.disk_price);
+        const user = await db.getUser(req.session.account.email);
+        const userCoins = parseInt(user.coins);
 
-	const subtotal = Math.ceil((newCPU*priceCPU + newRam*priceRam + newDisk*priceDisk)*cycleMultiplier);
-	// if (subtotal === 0) {
-	// 	return res.json({ error: "你買了...啥? 寂寞? (不可購買啥都0的，謝謝!)"})
-	// }
+        if (userCoins < subtotal) {
+            return res.json({ error: `你的餘額不足，無法支付此週期 (${subtotal} FreeCoin)。` });
+        }
 
-	const checkUserCoins = await db.getUser(req.session.account.email);
-	const userCoins = parseInt(checkUserCoins.coins)
+        const updateMoney = await db.updateCoins(req.session.account.email, userCoins - subtotal);
+        if (!updateMoney) {
+            return res.json({ error: "扣款失敗..." });
+        }
 
-	if ( userCoins < subtotal) {
-		return res.json({error: `你的餘額不足，無法支付此週期 (${subtotal} FreeCoin)。`})
-	}
+        const updateExpireTime = await db.setNextCycleExpire(req.session.account.email, true);
+        const updateCPU = await db.updateExtraCpu(req.session.account.email, newCPU * 100);
+        const updateRam = await db.updateExtraRam(req.session.account.email, newRam * 1024);
+        const updateDisk = await db.updateExtraDisk(req.session.account.email, newDisk * 1024);
+        const updateCycle = await db.updateUserCycle(req.session.account.email, newCycle);
 
-	const updateMoney = await db.updateCoins(email=req.session.account.email, coins=(parseInt(userCoins)-subtotal))
-	if (!updateMoney) {
-		return res.json({error: "扣款失敗..."})
-	}
-	const updateExpireTime = await db.setNextCycleExpire(email=req.session.account.email, isInit=true)
-	const updateCPU = await db.updateExtraCpu(email=req.session.account.email, cpu=newCPU*100);
-	const updateRam = await db.updateExtraRam(email=req.session.account.email, ram=newRam*1024);
-	const updateDisk = await db.updateExtraDisk(email=req.session.account.email, disk=newDisk*1024);
-	const updateCycle = await db.updateUserCycle(user=req.session.account.email, cycle=newCycle);
-	if ((!updateCPU) || (!updateRam) || (!updateDisk) || (!updateCycle) || (!updateExpireTime) ) {
-		return res.json({error: "發生了一點問題..."})
-	} else {
-		return res.json({ success: "已更新。" })
-	}
-})
+        if ([updateExpireTime, updateCPU, updateRam, updateDisk, updateCycle].includes(false)) {
+            return res.json({ error: "發生了一點問題..." });
+        } else {
+            return res.json({ success: "已更新。" });
+        }
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update resources' });
+    }
+});
 
 router.use('/purchase', require('./purchase/index.js'));
 
