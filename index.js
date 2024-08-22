@@ -273,118 +273,108 @@ app.get('/auth/logout', async (req, res) => {
  * Discord認證流程
  */
 app.get('/auth/discord', async (req, res) => {
-	const settings = await db.getSettings();
-	if (!settings.application_url) return res.send("Application URL not set in database. Please set now.");
-	res.redirect(`https://discord.com/api/oauth2/authorize?client_id=${settings.discord_id}&redirect_uri=${encodeURIComponent(`${settings.application_url}/auth/discord/callback`)}&response_type=code&scope=identify%20email%20guilds%20guilds.join`);
-});
+	const settings = await db.getSettings()
+	if (!settings.application_url) return res.send("Application URL not set in database. Please set now.")
+	res.redirect(`https://discord.com/api/oauth2/authorize?client_id=${settings.discord_id}&redirect_uri=${encodeURIComponent(`${settings.application_url}/auth/discord/callback`)}&response_type=code&scope=identify%20email%20guilds%20guilds.join`)
+})
 
 app.get('/auth/discord/callback', async (req, res) => {
-	if (!req.params.code) return res.send("Discord did not return an authorization code. Cannot continue.");
+	if (!req.query.code) return res.send("Discord did not return an authorization code. Cannot continue.")
 
-	const settings = await db.getSettings();
-	const oauth2Token = await sendApiRequest(
-		'https://discord.com/api/oauth2/token',
-		'post',
-		{ 'Content-Type': 'application/x-www-form-urlencoded' },
-		{
-			client_id: settings.discord_id,
-			client_secret: settings.discord_secret,
-			grant_type: 'authorization_code',
-			code: encodeURIComponent(req.query.code),
-			redirect_uri: encodeURIComponent(`${settings.application_url}/auth/discord/callback`)
-		}
-	);
+	const settings = await db.getSettings()
+	const oauth2Token = await fetch('https://discord.com/api/oauth2/token', {
+		method: 'post',
+		body: `client_id=${settings.discord_id}&client_secret=${settings.discord_secret}&grant_type=authorization_code&code=${encodeURIComponent(req.query.code)}&redirect_uri=${encodeURIComponent(`${settings.application_url}/auth/discord/callback`)}`,
+		headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+	})
 
-	if (!oauth2Token.ok) return res.send("Discord sent an invalid authorization code. Cannot continue.");
-	const tokenInfo = JSON.parse(await oauth2Token.text());
-	const scopes = tokenInfo.scope;
+	if (!oauth2Token.ok) return res.send("Discord sent an invalid authorization code. Cannot continue.")
+	const tokenInfo = JSON.parse(await oauth2Token.text())
+	const scopes = tokenInfo.scope
 
-	if (!scopes.includes('identify') || !scopes.includes('guilds.join') || !scopes.includes('email') || !scopes.includes('guilds')) return res.redirect('/auth/login');
-
-	const userinfo_raw = await sendApiRequest(
-		'https://discord.com/api/users/@me',
-		'get',
-		{
+	if (!scopes.includes('identify') || !scopes.includes('guilds.join') || !scopes.includes('email') || !scopes.includes('guilds')) return functions.doRedirect(req, res, redirects.badscopes)
+	const userinfo_raw = await fetch('https://discord.com/api/users/@me', {
+		method: 'get',
+		headers: {
 			Authorization: `Bearer ${tokenInfo.access_token}`
 		}
-	);
+	})
 
-	const userinfo = await userinfo_raw.json();
-	if (!userinfo.verified) return res.send("Discord account is not verified.");
+	const userinfo = JSON.parse(await userinfo_raw.text())
 
-	const guildinfo_raw = await sendApiRequest(
-		'https://discord.com/api/users/@me/guilds',
-		'get',
-		{
+	if (!userinfo.verified) return res.send("Discord account is not verified.")
+
+	const guildinfo_raw = await fetch('https://discord.com/api/users/@me/guilds', {
+		method: 'get',
+		headers: {
 			Authorization: `Bearer ${tokenInfo.access_token}`
 		}
-	);
+	})
 
-	const guilds = await guildinfo_raw.json();
-	if (!Array.isArray(guilds)) return res.send("An error occurred when fetching guilds.");
+	const guilds = await guildinfo_raw.json()
+	if (!Array.isArray(guilds)) return res.send("An error occured when fetching guilds.")
 
-	userinfo.access_token = tokenInfo.access_token;
-	userinfo.guilds = guilds;
+	userinfo.access_token = tokenInfo.access_token
+	userinfo.guilds = guilds
 
-	const check_if_banned = (await sendApiRequest(
-		`https://discord.com/api/guilds/${settings.discord_guild}/bans/${userinfo.id}`,
-		'get',
-		{
+	const check_if_banned = (await fetch(`https://discord.com/api/guilds/${settings.discord_guild}/bans/${userinfo.id}`, {
+		method: 'get',
+		headers: {
 			'Content-Type': 'application/json',
 			Authorization: `Bot ${settings.discord_token}`
 		}
-	)).status;
+	})).status
 
 	if (check_if_banned === 200) {
-		return res.send("Cannot register, you are banned from the host's discord.");
+		return res.send("Cannot register, you are banned from the hosts discord.")
+		//todo create blacklist system
 	} else if (check_if_banned === 404) {
-		await sendApiRequest(
-			`https://discord.com/api/guilds/${settings.discord_guild}/members/${userinfo.id}`,
-			'put',
-			{
+		await fetch(`https://discord.com/api/guilds/${settings.discord_guild}/members/${userinfo.id}`, {
+			method: 'put',
+			headers: {
 				'Content-Type': 'application/json',
 				Authorization: `Bot ${settings.discord_token}`
 			},
-			{
+			body: JSON.stringify({
 				access_token: tokenInfo.access_token
-			}
-		);
-	} else {
-		log.error(`[AUTO JOIN SERVER] Unexpected status code: ${check_if_banned}.`);
-	}
-
-	await sendApiRequest(
-		`https://discord.com/api/guilds/${settings.discord_guild}/members/${userinfo.id}/roles/${settings.registered_role}`,
-		'put',
-		{
-			'Content-Type': 'application/json',
-			Authorization: `Bot ${settings.discord_token}`
+			})
 		}
-	);
+		)
+	} else {
+		log.error('[AUTO JOIN SERVER] For some reason, the status code is ' + check_if_banned + ', instead of 200 or 404. You should worry about this.')
+	}
+	await fetch(`https://discord.com/api/guilds/${settings.discord_guild}/members/${userinfo.id}/roles/${settings.registered_role}`, {
+		method: "put",
+		headers: {
+			'Content-Type': 'application/json',
+			"Authorization": `Bot ${settings.discord_token}`
+		}
+	});
 
-	const userindb = await db.getUser(userinfo.email);
+	const userindb = await db.getUser(userinfo.email)
+
 	if (!userindb) {
-		const generated_password = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-		const created = await db.createUser(userinfo.id, userinfo.email, generated_password, "");
-		if (created !== true) return res.json({ error: created });
+		const generated_password = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+
+		const created = await db.createUser(userinfo.username, userinfo.email, generated_password);
+		if (created != true) return res.json({ error: created });
 		const user = await db.getUser(userinfo.email);
 		user._id = user._id.toString();
 
-		const data = await sendApiRequest(
-			settings.pterodactyl_url + '/api/application/users',
-			'post',
-			{
+		const data = await fetch(settings.pterodactyl_url + '/api/application/users', {
+			method: 'post',
+			headers: {
 				'Content-Type': 'application/json',
 				Authorization: `Bearer ${settings.pterodactyl_key}`
 			},
-			{
-				username: userinfo.id,
+			body: JSON.stringify({
+				username: user._id,
 				email: user.email,
-				first_name: userinfo.discriminator,
-				last_name: userinfo.username,
+				first_name: user.username,
+				last_name: '(Discord)',
 				password: generated_password
-			}
-		);
+			})
+		});
 
 		if (data.status === 201) {
 			const account = await data.json();
@@ -396,15 +386,15 @@ app.get('/auth/discord/callback', async (req, res) => {
 
 		req.session.account = user;
 		req.session.save();
-		res.redirect(`/dashboard?generatedpassword=${generated_password}`);
+		res.redirect(`/dashboard?generatedpassword=${generated_password}`)
 		webhook.info(`Registered`, `**Username:** ${user.username}\n**Email:** ${user.email}`);
 	} else {
 		req.session.account = userindb;
 		req.session.save();
-		res.redirect(`/dashboard`);
+		res.redirect(`/dashboard`)
 		webhook.info(`Login`, `**Username:** ${userindb.username}\n**Email:** ${userindb.email}`);
 	}
-});
+})
 
 // ========== 頁面路由 ==========
 /**
