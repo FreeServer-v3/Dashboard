@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const fetch = require('node-fetch');
 const webhook = require('../../../lib/webhook');
+const { getPterodactylServerInfo } = require('../../../lib/Pterodactyl');
 
 let tmp = {};
 
@@ -22,27 +23,6 @@ function hasEnoughResources(user, pkg, resourceRequest) {
         available_ram >= resourceRequest.ram &&
         available_disk >= resourceRequest.disk
     );
-}
-
-/**
- * 從 Pterodactyl 獲取伺服器信息
- * @param {Object} user - 用戶對象
- * @param {Object} settings - 配置對象
- * @returns {Object|null} 如果找到伺服器信息則返回該信息，否則返回 null
- */
-async function getPterodactylServerInfo(user, settings) {
-    const response = await fetch(`${settings.pterodactyl_url}/api/application/users/${user.pterodactyl_id}?include=servers`, {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${settings.pterodactyl_key}`
-        }
-    });
-
-    if (response.statusText === 'Not Found') return null;
-
-    const data = await response.json();
-    return data.attributes.relationships.servers.data;
 }
 
 /**

@@ -2,21 +2,7 @@ const db = require('../../../../lib/database');
 const express = require('express');
 const router = express.Router();
 const webhook = require('../../../../lib/webhook');
-
-/**
- * 檢查 Pterodactyl 配置是否完整
- * @param {Object} settings - 從數據庫獲取的設置對象
- * @returns {Object|null} 如果配置不完整，返回錯誤信息，否則返回 null
- */
-function checkPterodactylSettings(settings) {
-    if (!settings.pterodactyl_url) {
-        return { error: 'Pterodactyl URL not set' };
-    }
-    if (!settings.pterodactyl_key) {
-        return { error: 'Pterodactyl Key not set' };
-    }
-    return null;
-}
+const { checkPterodactylSettings } = require('../../../../lib/Pterodactyl');
 
 /**
  * 發送 Webhook 信息

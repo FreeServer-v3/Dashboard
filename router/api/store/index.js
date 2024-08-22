@@ -1,17 +1,7 @@
 const db = require('../../../lib/database');
 const express = require('express');
 const router = express.Router();
-
-/**
- * 檢查並返回用戶的 Pterodactyl 設置
- * @param {Object} settings - 系統設置
- * @returns {Object|null} 如果設置不完整，返回錯誤對象；如果設置完整，返回 null
- */
-function checkPterodactylSettings(settings) {
-    if (!settings.pterodactyl_url) return { error: 'Pterodactyl URL not set' };
-    if (!settings.pterodactyl_key) return { error: 'Pterodactyl Key not set' };
-    return null;
-}
+const { checkPterodactylSettings } = require('../../../lib/Pterodactyl');
 
 /**
  * 獲取資源價格和用戶的資源信息
