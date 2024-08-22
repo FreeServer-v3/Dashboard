@@ -4,35 +4,7 @@ const router = express.Router();
 const fetch = require('node-fetch');
 const events = require('../../lib/events').eventBus;
 const webhook = require('../../lib/webhook');
-
-/**
- * 檢查 Pterodactyl 設置是否完整
- * @param {Object} settings - 系統設置
- * @returns {Object|null} 返回錯誤對象或 null
- */
-function checkPterodactylSettings(settings) {
-    if (!settings.pterodactyl_url) return { error: 'Pterodactyl URL not set' };
-    if (!settings.pterodactyl_key) return { error: 'Pterodactyl Key not set' };
-    return null;
-}
-
-/**
- * 獲取 Pterodactyl 伺服器信息
- * @param {Object} user - 用戶對象
- * @param {Object} settings - 系統設置
- * @returns {Object|null} 返回伺服器信息或 null
- */
-async function getPterodactylServerInfo(user, settings) {
-    const response = await fetch(`${settings.pterodactyl_url}/api/application/users/${user.pterodactyl_id}?include=servers`, {
-        method: 'get',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${settings.pterodactyl_key}`
-        }
-    });
-    if (response.statusText === 'Not Found') return null;
-    return await response.json();
-}
+const { checkPterodactylSettings, getPterodactylServerInfoReturnPanelInfo } = require('../../lib/Pterodactyl');
 
 /**
  * 確認數字是否為整數
@@ -141,7 +113,7 @@ router.get('/me', async (req, res) => {
         const error = checkPterodactylSettings(settings);
         if (error) return res.json(error);
 
-        const panelinfo = await getPterodactylServerInfo(user, settings);
+        const panelinfo = await getPterodactylServerInfoReturnPanelInfo(user, settings);
         if (!panelinfo) return res.json({ error: 'Pterodactyl user not found' });
 
         const package = await db.getPackage(user.package);
@@ -158,14 +130,14 @@ router.get('/me', async (req, res) => {
         req.session.account.password = '';
         const renewals = await db.getUsersRenewals(user.email);
         renewals.forEach((renewal) => {
-            const server = panelinfo.attributes.relationships.servers.data.find(s => s.attributes.id === parseInt(renewal.server_id));
+            const server = panelinfo.find(s => s.attributes.id === parseInt(renewal.server_id));
             if (server) {
                 server.renew_by = renewal.renew_by;
                 server.renewal_enabled = renewal.renewal_enabled;
             }
         });
 
-        res.json({ user: req.session.account, stats, servers: panelinfo.attributes.relationships.servers.data, ptero_user: panelinfo });
+        res.json({ user: req.session.account, stats, servers: panelinfo, ptero_user: panelinfo });
     } catch (error) {
         res.status(500).json({ error: 'Failed to retrieve user info' });
     }
@@ -220,7 +192,7 @@ router.ws('/watch', async (ws, req) => {
 
             const user = await db.getUser(data);
             const settings = await db.getSettings();
-            const panelinfo = await getPterodactylServerInfo(user, settings);
+            const panelinfo = await getPterodactylServerInfoReturnPanelInfo(user, settings);
             if (!panelinfo) return ws.send(JSON.stringify({ error: 'Pterodactyl user not found' }));
 
             const package = await db.getPackage(user.package);
@@ -233,7 +205,7 @@ router.ws('/watch', async (ws, req) => {
                 used_disk: user.used_disk
             };
 
-            ws.send(JSON.stringify({ user, servers: panelinfo.attributes.relationships.servers.data, stats }));
+            ws.send(JSON.stringify({ user, servers: panelinfo, stats }));
         } catch (error) {
             ws.send(JSON.stringify({ error: 'Failed to update user info' }));
         }
@@ -254,7 +226,7 @@ router.post('/reset-password', async (req, res) => {
         const user = await db.getUser(req.session.account.email);
         const generated_password = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 
-        const panelinfo = await getPterodactylServerInfo(user, settings);
+        const panelinfo = await getPterodactylServerInfoReturnPanelInfo(user, settings);
         if (!panelinfo) return res.json({ error: 'Pterodactyl user not found' });
 
         await db.updatePassword(user.email, generated_password);

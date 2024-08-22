@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const fetch = require('node-fetch');
 const db = require('../lib/database');
+const { getPterodactylServerInfoReturnPanelInfo } = require('../lib/Pterodactyl');
 
 /**
  * 驗證 API 金鑰
@@ -13,24 +14,6 @@ async function validateApiKey(apiKey) {
     if (!key) return false;
     await db.setLastUsedApiKey(key.key);
     return true;
-}
-
-/**
- * 獲取 Pterodactyl 伺服器信息
- * @param {Object} user - 用戶對象
- * @param {Object} settings - 系統設置
- * @returns {Object|null} 返回伺服器信息或 null
- */
-async function getPterodactylServerInfo(user, settings) {
-    const response = await fetch(`${settings.pterodactyl_url}/api/application/users/${user.pterodactyl_id}?include=servers`, {
-        method: 'get',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${settings.pterodactyl_key}`
-        }
-    });
-    if (response.statusText === 'Not Found') return null;
-    return await response.json();
 }
 
 router.use('*', async (req, res, next) => {
@@ -55,7 +38,7 @@ router.use('*', async (req, res, next) => {
             const settings = await db.getSettings();
             if (!user || !user.pterodactyl_id) return res.redirect('/auth/login');
 
-            const panelinfo = await getPterodactylServerInfo(user, settings);
+            const panelinfo = await getPterodactylServerInfoReturnPanelInfo(user, settings);
             if (!panelinfo) return res.json({ error: 'Pterodactyl user not found' });
 
             if (!panelinfo.attributes.root_admin) return res.redirect('/dashboard');

@@ -2,26 +2,7 @@ const db = require('../../../lib/database');
 const express = require('express');
 const router = express.Router();
 const fetch = require('node-fetch');
-
-/**
- * 獲取 Pterodactyl 用戶信息
- * @param {string} pterodactyl_id - Pterodactyl 用戶 ID
- * @param {Object} settings - 配置物件
- * @returns {Object|null} 用戶信息物件或 null
- */
-async function getPterodactylUserInfo(pterodactyl_id, settings) {
-    const response = await fetch(`${settings.pterodactyl_url}/api/application/users/${pterodactyl_id}?include=servers`, {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${settings.pterodactyl_key}`
-        }
-    });
-    if (response.statusText === 'Not Found') {
-        return null;
-    }
-    return await response.json();
-}
+const { getPterodactylUserInfo } = require('../../../lib/Pterodactyl');
 
 /**
  * 解凍伺服器
