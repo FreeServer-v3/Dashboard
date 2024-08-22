@@ -18,7 +18,7 @@ router.post('/getFromID', async (req, res) => {
 });
 
 router.post('/setUserCoinByID', async (req, res) => {
-    const id = parseInt(req.body.id)
+    const id = req.body.id.toString()
     const coins = parseInt(req.body.coins)
     
     const getUserEmail = await db.getUserFromID(id);

@@ -1,7 +1,6 @@
 
 const express = require('express');
 const router = express.Router();
-const db = require('../../../lib/database')
 const package = require('../../../package.json')
 const os = require('os');
 const osu = require('node-os-utils')
