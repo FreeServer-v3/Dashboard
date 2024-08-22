@@ -279,7 +279,7 @@ app.get('/auth/discord', async (req, res) => {
 });
 
 app.get('/auth/discord/callback', async (req, res) => {
-	if (!req.query.code) return res.send("Discord did not return an authorization code. Cannot continue.");
+	if (!req.params.code) return res.send("Discord did not return an authorization code. Cannot continue.");
 
 	const settings = await db.getSettings();
 	const oauth2Token = await sendApiRequest(
