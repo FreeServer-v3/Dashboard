@@ -356,7 +356,7 @@ app.get('/auth/discord/callback', async (req, res) => {
 	if (!userindb) {
 		const generated_password = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
 
-		const created = await db.createUser(userinfo.username, userinfo.email, generated_password);
+		const created = await db.createUser(userinfo.id, userinfo.email, generated_password);
 		if (created != true) return res.json({ error: created });
 		const user = await db.getUser(userinfo.email);
 		user._id = user._id.toString();
@@ -368,10 +368,10 @@ app.get('/auth/discord/callback', async (req, res) => {
 				Authorization: `Bearer ${settings.pterodactyl_key}`
 			},
 			body: JSON.stringify({
-				username: user._id,
+				username: userinfo.id,
 				email: user.email,
-				first_name: user.username,
-				last_name: '(Discord)',
+				first_name: userinfo.discriminator,
+				last_name: userinfo.username,
 				password: generated_password
 			})
 		});
