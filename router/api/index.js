@@ -137,7 +137,7 @@ router.get('/me', async (req, res) => {
             }
         });
 
-        res.json({ user: req.session.account, stats, servers: panelinfo, ptero_user: panelinfo });
+        res.json({ user: req.session.account, stats, servers: panelinfo.attributes.relationships.servers.data, ptero_user: panelinfo });
     } catch (error) {
         res.status(500).json({ error: 'Failed to retrieve user info' });
     }
@@ -205,7 +205,7 @@ router.ws('/watch', async (ws, req) => {
                 used_disk: user.used_disk
             };
 
-            ws.send(JSON.stringify({ user, servers: panelinfo, stats }));
+            ws.send(JSON.stringify({ user, servers: panelinfo.attributes.relationships.servers.data, stats }));
         } catch (error) {
             ws.send(JSON.stringify({ error: 'Failed to update user info' }));
         }
