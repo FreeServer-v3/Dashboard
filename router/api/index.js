@@ -5,7 +5,6 @@ const fetch = require('node-fetch');
 const events = require('../../lib/events').eventBus;
 const webhook = require('../../lib/webhook');
 const { checkPterodactylSettings, getPterodactylServerInfoReturnPanelInfo } = require('../../lib/Pterodactyl');
-const { checkInt } = require('../../lib/functions');
 
 router.post('/install', async (req, res) => {
     try {
@@ -44,7 +43,7 @@ router.post('/nafs-create', async (req, res) => {
     try {
         const { amount } = req.body;
 
-        if (!checkInt(amount)) return res.json({ success: false, text: 'Amount is not int' });
+        if (!Number.isInteger(amount)) return res.json({ success: false, text: 'Amount is not int' });
 
         function generateRandomString() {
             const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12345678';

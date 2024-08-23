@@ -2,7 +2,7 @@ const db = require('../../../lib/database');
 const express = require('express');
 const router = express.Router();
 const { checkPterodactylSettings } = require('../../../lib/Pterodactyl');
-const { checkInt } = require('../../../lib/functions');
+const { checkIntGTE0 } = require('../../../lib/functions');
 
 
 /**
@@ -90,7 +90,7 @@ router.put('/update', async (req, res) => {
         const newDisk = body.disk;
         const newCycle = body.cycle;
 
-        if (![newCPU, newRam, newDisk].every(checkInt)) {
+        if (![newCPU, newRam, newDisk].every(checkIntGTE0)) {
             return res.json({ error: "你輸入的數字好像不是整數..." });
         }
 
