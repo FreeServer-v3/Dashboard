@@ -3,38 +3,7 @@ const router = express.Router();
 const packageInfo = require('../../../package.json');
 const os = require('os');
 const osu = require('node-os-utils');
-
-/**
- * 格式化秒數為 hh:mm:ss
- * @param {number} seconds - 時間的秒數
- * @returns {string} 格式化後的時間字串
- */
-function formatTime(seconds) {
-    const pad = (s) => (s < 10 ? '0' : '') + s;
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const remainingSeconds = Math.floor(seconds % 60);
-
-    return `${pad(hours)}:${pad(minutes)}:${pad(remainingSeconds)}`;
-}
-
-/**
- * 格式化位元組為適合的單位
- * @param {number} bytes - 位元組數
- * @param {number} [decimals=2] - 小數位數
- * @returns {string} 格式化後的位元組字串
- */
-function formatBytes(bytes, decimals = 2) {
-    if (bytes === 0) return '0 Bytes';
-
-    const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-}
+const { formatTime, formatBytes } = require('../../../lib/functions');
 
 /**
  * 獲取 Dashactyl 應用程序的統計數據
