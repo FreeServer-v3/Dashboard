@@ -5,15 +5,7 @@ const fetch = require('node-fetch');
 const events = require('../../lib/events').eventBus;
 const webhook = require('../../lib/webhook');
 const { checkPterodactylSettings, getPterodactylServerInfoReturnPanelInfo } = require('../../lib/Pterodactyl');
-
-/**
- * 確認數字是否為整數
- * @param {number} num - 要檢查的數字
- * @returns {boolean} 如果數字為整數，返回 true，否則返回 false
- */
-function checkInt(num) {
-    return typeof num === 'number' && Number.isInteger(num);
-}
+const { checkInt } = require('../../lib/functions');
 
 router.post('/install', async (req, res) => {
     try {

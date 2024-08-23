@@ -2,6 +2,8 @@ const db = require('../../../lib/database');
 const express = require('express');
 const router = express.Router();
 const { checkPterodactylSettings } = require('../../../lib/Pterodactyl');
+const { checkInt } = require('../../../lib/functions');
+
 
 /**
  * 獲取資源價格和用戶的資源信息
@@ -43,15 +45,6 @@ function calculateTotalPrice(settings, resource) {
     const priceDisk = parseInt(settings.disk_price);
 
     return Math.ceil((resource.cpu * priceCPU + resource.ram * priceRam + resource.disk * priceDisk) * cycleMultiplier);
-}
-
-/**
- * 檢查數值是否為有效的整數
- * @param {number} num - 要檢查的數字
- * @returns {boolean} 如果數字為有效整數，返回 true，否則返回 false
- */
-function checkInt(num) {
-    return typeof num === 'number' && Number.isInteger(num) && num % 1 === 0 && num >= 0;
 }
 
 router.get('/', async (req, res) => {
