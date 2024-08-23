@@ -84,11 +84,11 @@ router.get('/cycle', async (req, res) => {
 // 前端更改資源後存到資料庫
 router.put('/update', async (req, res) => {
     try {
-        const body = req.body;
-        const newCPU = body.cpu;
-        const newRam = body.ram;
-        const newDisk = body.disk;
-        const newCycle = body.cycle;
+        const body = parseInt(req.body);
+        const newCPU = parseInt(body.cpu);
+        const newRam = parseInt(body.ram);
+        const newDisk = parseInt(body.disk);
+        const newCycle = parseInt(body.cycle);
 
         if (![newCPU, newRam, newDisk].every(checkIntGTE0)) {
             return res.json({ error: "你輸入的數字好像不是整數..." });
