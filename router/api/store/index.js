@@ -85,10 +85,10 @@ router.get('/cycle', async (req, res) => {
 router.put('/update', async (req, res) => {
     try {
         const body = req.body;
-        const newCPU = body.cpuspec;
-        const newRam = body.ramspec;
-        const newDisk = body.diskspec;
-        const newCycle = body.cycleT;
+        const newCPU = body.cpu;
+        const newRam = body.ram;
+        const newDisk = body.disk;
+        const newCycle = body.cycle;
 
         if (![newCPU, newRam, newDisk].every(checkIntGTE0)) {
             return res.json({ error: "你輸入的數字好像不是整數..." });
