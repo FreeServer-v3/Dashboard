@@ -7,9 +7,9 @@ const { checkIntGTE0 } = require('../../../lib/functions');
 
 /**
  * 獲取資源價格和用戶的資源信息
- * @param {Object} user - 用戶對象
+ * @param {Object} user - 用戶物件
  * @param {Object} settings - 系統設置
- * @returns {Object} 包含資源價格和用戶資源信息的對象
+ * @returns {Object} 包含資源價格和用戶資源信息的物件
  */
 function getResourceInfo(user, settings) {
     return {
@@ -84,7 +84,7 @@ router.get('/cycle', async (req, res) => {
 // 前端更改資源後存到資料庫
 router.put('/update', async (req, res) => {
     try {
-        const body = parseInt(req.body);
+        const body = req.body;
         const newCPU = parseInt(body.cpu);
         const newRam = parseInt(body.ram);
         const newDisk = parseInt(body.disk);
