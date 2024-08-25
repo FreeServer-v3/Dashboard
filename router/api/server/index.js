@@ -14,10 +14,14 @@ let tmp = {};
  * @param {Object} resourceRequest - 請求的資源
  * @returns {boolean} 如果資源足夠則返回 true，否則返回 false
  */
-function hasEnoughResources(user, pkg, resourceRequest) {
-    const available_cpu = parseInt(pkg.cpu) + parseInt(user.extra.cpu) - parseInt(user.used_cpu);
-    const available_ram = parseInt(pkg.ram) + parseInt(user.extra.ram) - parseInt(user.used_ram);
-    const available_disk = parseInt(pkg.disk) + parseInt(user.extra.disk) - parseInt(user.used_disk);
+function hasEnoughResources(user, pkg, resourceRequest, beforeEdit = {
+    cpu: 0,
+    ram: 0,
+    disk: 0
+}) {
+    const available_cpu = parseInt(pkg.cpu) + parseInt(user.extra.cpu) - parseInt(user.used_cpu) + parseInt(beforeEdit.cpu);
+    const available_ram = parseInt(pkg.ram) + parseInt(user.extra.ram) - parseInt(user.used_ram) + parseInt(beforeEdit.ram);
+    const available_disk = parseInt(pkg.disk) + parseInt(user.extra.disk) - parseInt(user.used_disk) + parseInt(beforeEdit.disk);
     return (
         available_cpu >= parseInt(resourceRequest.cpu) &&
         available_ram >= parseInt(resourceRequest.ram) &&
@@ -160,7 +164,12 @@ router.patch('/edit/:id', async (req, res) => {
             disk: parseInt(req.body.disk)
         };
 
-        if (!hasEnoughResources(user, pkg, newResources)) {
+        const beforeEdit = {
+            cpu: server.attributes.limits.cpu,
+            ram: server.attributes.limits.memory,
+            disk: server.attributes.limits.disk
+        };
+        if (!hasEnoughResources(user, pkg, newResources, beforeEdit)) {
             return res.json({ error: '你擁有的資源不足，請購買更多資源或降低其他伺服器用量。[F_EC2]' });
         }
 
