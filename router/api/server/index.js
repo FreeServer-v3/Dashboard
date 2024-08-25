@@ -12,6 +12,7 @@ let tmp = {};
  * @param {Object} user - 用戶對象
  * @param {Object} pkg - 用戶套餐對象
  * @param {Object} resourceRequest - 請求的資源
+ * @param {Object} beforeEdit - (僅編輯時，創建不用）編輯前的資源
  * @returns {boolean} 如果資源足夠則返回 true，否則返回 false
  */
 function hasEnoughResources(user, pkg, resourceRequest, beforeEdit = {
