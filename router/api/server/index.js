@@ -15,9 +15,9 @@ let tmp = {};
  * @returns {boolean} 如果資源足夠則返回 true，否則返回 false
  */
 function hasEnoughResources(user, pkg, resourceRequest) {
-    const available_cpu = pkg.cpu + user.extra.cpu - user.used_cpu;
-    const available_ram = pkg.ram + user.extra.ram - user.used_ram;
-    const available_disk = pkg.disk + user.extra.disk - user.used_disk;
+    const available_cpu = parseInt(pkg.cpu) + parseInt(user.extra.cpu) - parseInt(user.used_cpu);
+    const available_ram = parseInt(pkg.ram) + parseInt(user.extra.ram) - parseInt(user.used_ram);
+    const available_disk = parseInt(pkg.disk) + parseInt(user.extra.disk) - parseInt(user.used_disk);
     return (
         available_cpu >= resourceRequest.cpu &&
         available_ram >= resourceRequest.ram &&
