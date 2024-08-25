@@ -164,12 +164,12 @@ router.patch('/edit/:id', async (req, res) => {
             disk: parseInt(req.body.disk)
         };
 
-        if (!hasEnoughResources(user, pkg, newResources, {
-            // 這裡要傳修改前的配置
-            // cpu: server.attributes.limits.cpu,
-            // ram: server.attributes.limits.memory,
-            // disk: server.attributes.limits.disk
-        })) {
+        const beforeEdit = {
+            cpu: server.attributes.limits.cpu,
+            ram: server.attributes.limits.memory,
+            disk: server.attributes.limits.disk
+        };
+        if (!hasEnoughResources(user, pkg, newResources, beforeEdit)) {
             return res.json({ error: '你擁有的資源不足，請購買更多資源或降低其他伺服器用量。[F_EC2]' });
         }
 
