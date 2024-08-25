@@ -19,9 +19,9 @@ function hasEnoughResources(user, pkg, resourceRequest) {
     const available_ram = parseInt(pkg.ram) + parseInt(user.extra.ram) - parseInt(user.used_ram);
     const available_disk = parseInt(pkg.disk) + parseInt(user.extra.disk) - parseInt(user.used_disk);
     return (
-        available_cpu >= resourceRequest.cpu &&
-        available_ram >= resourceRequest.ram &&
-        available_disk >= resourceRequest.disk
+        available_cpu >= parseInt(resourceRequest.cpu) &&
+        available_ram >= parseInt(resourceRequest.ram) &&
+        available_disk >= parseInt(resourceRequest.disk)
     );
 }
 
