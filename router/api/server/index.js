@@ -178,6 +178,11 @@ router.patch('/edit/:id', async (req, res) => {
         if (!hasEnoughResources(user, pkg, newResources, beforeEdit)) {
             return res.json({ error: '你擁有的資源不足，請購買更多資源或降低其他伺服器用量。[F_EC2]' });
         }
+            
+        if (parseInt(req.body.cpu) < 10 || parseInt(req.body.ram) < 128 || parseInt(req.body.disk) < 128) return res.json({ error: 'CPU 最小數值為 10%，記憶體與儲存空間至少需要 128MiB，請檢查是否數值過小。[F_EC3]' });
+        if (parseInt(req.body.cpu) > 1600 || parseInt(req.body.ram) > 32768 || parseInt(req.body.disk) > 262144) return res.json({ error: '單台伺服器最大配置為: CPU 1600%, 記憶體 32GiB, 硬碟 256GiB。如果您有更大的需求，請使用 Discord 的管理員信箱功能聯繫我們。[F_EC10]' });
+
+        if (Number.isInteger(parseInt(req.body.cpu)) == false || Number.isInteger(parseInt(req.body.ram)) == false || Number.isInteger(parseInt(req.body.disk)) == false) return res.json({ error: '你輸入的好像不是數字? [F_EC4]' });
 
         const editresults = await fetch(`${settings.pterodactyl_url}/api/application/servers/${req.params.id}/build`, {
             method: 'PATCH',
