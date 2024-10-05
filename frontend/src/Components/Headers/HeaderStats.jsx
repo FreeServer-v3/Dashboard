@@ -47,8 +47,8 @@ export default function HeaderStats() {
 			  })
 		};
 		ws.addEventListener('message', function (event) {
-			if (event.data.toString("utf8") === "This is a websocket message that check if you are alive. If you see this, are you gay?") return
 			const data = JSON.parse(event.data);
+			if (data.message == "hi") return;
 			if (data.error) MySwal.fire({
 				icon: 'error',
 				title: '錯誤',

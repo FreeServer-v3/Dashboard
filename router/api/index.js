@@ -191,7 +191,7 @@ router.ws('/watch', async (ws, req) => {
     });
 
     const loop = setInterval(() => {
-        ws.send("This is a websocket message that checks if you are alive.");
+        ws.send(JSON.stringify({ message: "hi" }));
     }, 1000);
 
     ws.onclose = () => clearInterval(loop);
