@@ -5,7 +5,7 @@ export default function FooterAdmin() {
 	const [adJson, setAdJson] = React.useState();
 	const [isLoading, setIsLoading] = React.useState(true);
 
-	useEffect(() => {
+	React.useEffect(() => {
 		fetch('https://cdn.freeserver.tw/ad/list.json')
 		.then(response => response.text())
 		.then(text => {
