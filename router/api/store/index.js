@@ -90,6 +90,10 @@ router.put('/update', async (req, res) => {
         const newDisk = parseInt(body.disk);
         const newCycle = parseInt(body.cycle);
 
+        if (!newCycle) {
+            return res.json({ error: "請點選 更改週期!" });
+        }
+
         if (![newCPU, newRam, newDisk].every(checkIntGTE0)) {
             return res.json({ error: "你輸入的數字好像不是整數..." });
         }
