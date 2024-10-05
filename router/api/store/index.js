@@ -88,9 +88,9 @@ router.put('/update', async (req, res) => {
         const newCPU = parseInt(body.cpu);
         const newRam = parseInt(body.ram);
         const newDisk = parseInt(body.disk);
-        const newCycle = parseInt(body.cycle);
+        const newCycle = body.cycle;
 
-        if (!newCycle) {
+        if (!newCycle || newCycle === null) {
             return res.json({ error: "請點選 更改週期!" });
         }
 
