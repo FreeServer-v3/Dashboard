@@ -27,18 +27,6 @@ router.get('/getName', async (req, res) => {
     }
 });
 
-router.get('/getAD', async (req, res) => {
-    try {
-        const settings = await db.getSettings();
-        if (!settings.enable_ad) return res.json({ disabled: true });
-        const ads = await db.getAds();
-        const randomAd = ads[Math.floor(Math.random() * ads.length)];
-        res.json(randomAd);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve ads' });
-    }
-});
-
 router.post('/nafs-create', async (req, res) => {
     try {
         const { amount } = req.body;

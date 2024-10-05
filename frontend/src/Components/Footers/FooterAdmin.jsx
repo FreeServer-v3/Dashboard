@@ -6,13 +6,15 @@ export default function FooterAdmin() {
 	const [isLoading, setIsLoading] = React.useState(true);
 
 	React.useEffect(() => {
-		fetch('/api/getAD')
+		fetch('https://cdn.freeserver.tw/ad/list.json')
 		.then(response => response.json())
 		.then(json => {
 			if (json.disabled) {
 				setAdEnabled(false)
 			} else {
 				setAdEnabled(true)
+				// random ad from json list
+				const json = json.list[Math.floor(Math.random() * json.list.length)]
 				setAdJson(json)
 			}
 			setIsLoading(false)
