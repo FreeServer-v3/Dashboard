@@ -5,20 +5,32 @@ export default function FooterAdmin() {
 	const [adJson, setAdJson] = React.useState();
 	const [isLoading, setIsLoading] = React.useState(true);
 
-	React.useEffect(() => {
+	useEffect(() => {
 		fetch('https://cdn.freeserver.tw/ad/list.json')
-		.then(response => response.json())
-		.then(json => {
+		.then(response => response.text())
+		.then(text => {
+			try {
+			const json = JSON.parse(text);
 			if (json.disabled) {
-				setAdEnabled(false)
+				setAdEnabled(false);
 			} else {
-				setAdEnabled(true)
+				setAdEnabled(true);
 				// random ad from json list
-				const json = json.list[Math.floor(Math.random() * json.list.length)]
-				setAdJson(json)
+				const randomAd = json.list[Math.floor(Math.random() * json.list.length)];
+				setAdJson(randomAd);
 			}
-			setIsLoading(false)
+			} catch (error) {
+			console.error('Error parsing JSON:', error);
+			setAdEnabled(false);
+			}
 		})
+		.catch(error => {
+			console.error('Error fetching ad data:', error);
+			setAdEnabled(false);
+		})
+		.finally(() => {
+			setIsLoading(false);
+		});
 	}, []);
 
 	return (
