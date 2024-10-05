@@ -70,8 +70,8 @@ export default function FooterAdmin() {
 							        <img src={adJson.image} className="w-8 h-8 mr-2" />
 							        {adJson.text}
 							    </a>
-							    <a className='flex text-zinc-500 text-xs'>
-							        贊助商廣告
+							    <a className='flex text-zinc-500 text-xs' href='https://freeserver.tw/donate'>
+							        由 {adJson.name} 提供的贊助商廣告
 							    </a>
 								</div>
             				</div>
