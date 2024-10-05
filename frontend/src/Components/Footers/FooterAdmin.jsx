@@ -11,13 +11,24 @@ export default function FooterAdmin() {
 		.then(text => {
 			try {
 			const json = JSON.parse(text);
-			if (json.disabled) {
-				setAdEnabled(false);
-			} else {
+			if (Array.isArray(json)) {
+				// If the JSON is directly an array of ads
 				setAdEnabled(true);
-				// random ad from json list
+				const randomAd = json[Math.floor(Math.random() * json.length)];
+				setAdJson(randomAd);
+			} else if (json.list && Array.isArray(json.list)) {
+				// If the JSON has a 'list' property that is an array
+				if (json.disabled) {
+				setAdEnabled(false);
+				} else {
+				setAdEnabled(true);
 				const randomAd = json.list[Math.floor(Math.random() * json.list.length)];
 				setAdJson(randomAd);
+				}
+			} else {
+				// If the JSON structure is unexpected
+				console.error('Unexpected JSON structure:', json);
+				setAdEnabled(false);
 			}
 			} catch (error) {
 			console.error('Error parsing JSON:', error);
